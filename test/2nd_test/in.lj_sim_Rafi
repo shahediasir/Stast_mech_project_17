@@ -1,0 +1,50 @@
+variable seed equal 213569
+variable avg_length equal 50000 # time over which to average RDF
+
+units lj # This simulation uses Lennard-Jones reduced units (see notes)
+boundary f f f # this isn't necessary, but we have reflective walls, so this
+               # will tell us if those fail for some reason
+
+# create box that can be filled with Type-1 atoms
+lattice fcc 0.75 # reduced density is 0.75
+region simbox block 0 5 0 5 0 5
+create_box 1 simbox
+
+# How we calculate forces
+pair_style lj/cut 2.5 # r_c = 2.5 sigma
+pair_coeff 1 1 1.0 1.0 # specify sigma = 1 and epsilon = 1
+mass 1 1 # mass, in LJ reduced units
+
+# Do we want the Lennard-Jones potential shifted? Default: yes
+#pair_modify shift no
+
+# Fill simulation with type 1 atoms, on-lattice
+create_atoms 1 box
+# give them random velocities consistent with kT/epsilon = 0.5
+velocity all create 0.5 ${seed} # last number is a random number seed
+
+# What thermodynamic information do we desire to collect?
+thermo_style custom step temp press ke pe etotal
+thermo 100 # print the above every 100 time steps
+
+# set the time step; default is 0.005 tau
+timestep 0.0005
+
+# Apply reflective walls (to mimic the Monte Carlo simulation)
+fix reflect all wall/reflect xlo EDGE xhi EDGE ylo EDGE yhi EDGE zlo EDGE zhi EDGE
+
+# Run molecular dynamics in the isokinetic ensemble (constant
+# kinetic energy) by rescaling the velocities every time step
+# for 1000 time steps, to achieve a temperature consistent with
+# kT/epsilon = 0.5
+fix 2 all temp/rescale 1 0.5 0.5 0.0 1.0
+fix 1 all nve # velocity Verlet time integration
+run 1000
+unfix 2
+
+# Compute the radial distribution function
+compute RDF all rdf 50 # 50 bins between 0 and the cutoff distance
+# output the average of the RDF over the last 50000 steps every 50000 steps
+fix RDF all ave/time 1 1 ${avg_length} c_RDF[2*3] file RDF_lj.txt mode vector
+
+run ${avg_length} # run the simulation

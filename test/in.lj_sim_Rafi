@@ -28,7 +28,7 @@ thermo_style custom step temp press ke pe etotal
 thermo 100 # print the above every 100 time steps
 
 # set the time step; default is 0.005 tau
-timestep 0.005
+timestep 0.0005
 
 # Apply reflective walls (to mimic the Monte Carlo simulation)
 fix reflect all wall/reflect xlo EDGE xhi EDGE ylo EDGE yhi EDGE zlo EDGE zhi EDGE

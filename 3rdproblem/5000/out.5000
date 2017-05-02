@@ -1,0 +1,191 @@
+LAMMPS (30 Jul 2016)
+variable seed equal 1928427217 #1st random number by Rafi
+variable avg_length equal 5000
+
+units lj # This simulation uses Lennard-Jones reduced units (see notes)
+boundary f f f # this isn't necessary, but we have reflective walls, so this
+               # will tell us if those fail for some reason
+
+# create box that can be filled with Type-1 atoms
+lattice fcc 0.75 # reduced density is 0.75
+Lattice spacing in x,y,z = 1.74716 1.74716 1.74716
+region simbox block 0 5 0 5 0 5
+create_box 1 simbox
+Created orthogonal box = (0 0 0) to (8.7358 8.7358 8.7358)
+  7 by 1 by 1 MPI processor grid
+
+# How we calculate forces
+pair_style lj/cut 2.5 # r_c = 2.5 sigma
+pair_coeff 1 1 1.0 1.0 # specify sigma = 1 and epsilon = 1
+mass 1 1 # mass, in LJ reduced units
+
+# Do we want the Lennard-Jones potential shifted? Default: yes
+#pair_modify shift no
+
+# Fill simulation with type 1 atoms, on-lattice
+create_atoms 1 box
+Created 500 atoms
+# give them random velocities consistent with kT/epsilon = 0.5
+velocity all create 0.5 ${seed} # last number is a random number seed
+velocity all create 0.5 1928427217 
+
+# What thermodynamic information do we desire to collect?
+thermo_style custom step temp press ke pe etotal
+thermo 100 # print the above every 100 time steps
+
+# set the time step; default is 0.005 tau
+timestep 0.0005
+
+# Apply reflective walls (to mimic the Monte Carlo simulation)
+fix reflect all wall/reflect xlo EDGE xhi EDGE ylo EDGE yhi EDGE zlo EDGE zhi EDGE
+
+# Run molecular dynamics in the isokinetic ensemble (constant
+# kinetic energy) by rescaling the velocities every time step
+# for 1000 time steps, to achieve a temperature consistent with
+# kT/epsilon = 0.5
+fix 2 all temp/rescale 1 0.5 0.5 0.0 1.0
+fix 1 all nve # velocity Verlet time integration
+run 1000
+Neighbor list info ...
+  1 neighbor list requests
+  update every 1 steps, delay 10 steps, check yes
+  max neighbors/atom: 2000, page size: 100000
+  master list distance cutoff = 2.8
+  ghost atom cutoff = 2.8
+  binsize = 1.4 -> bins = 7 7 7
+Memory usage per processor = 2.48715 Mbytes
+Step Temp Press KinEng PotEng TotEng 
+       0          0.5   -4.2606863       0.7485   -4.6432288   -3.8947288 
+     100          0.5   -3.8839758       0.7485   -4.7018736   -3.9533736 
+     200          0.5   -2.4011554       0.7485   -4.6279852   -3.8794852 
+     300          0.5  -0.60923292       0.7485   -4.5158278   -3.7673278 
+     400          0.5  -0.34677524       0.7485   -4.6816234   -3.9331234 
+     500          0.5  -0.42944944       0.7485    -4.832985    -4.084485 
+     600          0.5  -0.47078414       0.7485   -4.9464383   -4.1979383 
+     700          0.5  -0.39003734       0.7485    -5.029501    -4.281001 
+     800          0.5  -0.31117737       0.7485   -5.1126489   -4.3641489 
+     900          0.5  -0.24648765       0.7485   -5.2049546   -4.4564546 
+    1000          0.5  -0.14750861       0.7485    -5.294774    -4.546274 
+Loop time of 0.0804524 on 7 procs for 1000 steps with 500 atoms
+
+Performance: 536963.190 tau/day, 12429.703 timesteps/s
+69.6% CPU use with 7 MPI tasks x no OpenMP threads
+
+MPI task timing breakdown:
+Section |  min time  |  avg time  |  max time  |%varavg| %total
+---------------------------------------------------------------
+Pair    | 0.0087731  | 0.036973   | 0.056365   |   8.1 | 45.96
+Neigh   | 0.00021386 | 0.0005891  | 0.00088906 |   0.9 |  0.73
+Comm    | 0.013976   | 0.032617   | 0.058341   |   8.3 | 40.54
+Output  | 0.00014734 | 0.00016529 | 0.00024056 |   0.2 |  0.21
+Modify  | 0.003792   | 0.0062709  | 0.0082374  |   1.8 |  7.79
+Other   |            | 0.003838   |            |       |  4.77
+
+Nlocal:    71.4286 ave 97 max 41 min
+Histogram: 1 1 0 2 0 0 0 0 0 3
+Nghost:    251.143 ave 386 max 154 min
+Histogram: 2 0 0 1 1 1 1 0 0 1
+Neighs:    1916.57 ave 3017 max 688 min
+Histogram: 1 0 0 2 1 0 0 1 0 2
+
+Total # of neighbors = 13416
+Ave neighs/atom = 26.832
+Neighbor list builds = 7
+Dangerous builds = 0
+unfix 2
+
+# Compute the radial distribution function
+compute RDF all rdf 50 # 50 bins between 0 and the cutoff distance
+# output the average of the RDF over the last 50000 steps every 50000 steps
+fix RDF all ave/time 1 1 ${avg_length} c_RDF[2*3] file RDF_lj.txt mode vector
+fix RDF all ave/time 1 1 5000 c_RDF[2*3] file RDF_lj.txt mode vector
+
+run ${avg_length} # run the simulation
+run 5000 
+Neighbor list info ...
+  2 neighbor list requests
+  update every 1 steps, delay 10 steps, check yes
+  max neighbors/atom: 2000, page size: 100000
+  master list distance cutoff = 2.8
+  ghost atom cutoff = 2.8
+  binsize = 1.4 -> bins = 7 7 7
+Memory usage per processor = 2.48715 Mbytes
+Step Temp Press KinEng PotEng TotEng 
+    1000          0.5  -0.14750861       0.7485    -5.294774    -4.546274 
+    1100   0.52096339   0.18347454   0.77988219   -5.3313115   -4.5514293 
+    1200   0.55960034    0.4243866   0.83772171   -5.3953856   -4.5576639 
+    1300   0.56862875   0.80919313   0.85123723   -5.4162435   -4.5650063 
+    1400   0.55239569    1.2929818   0.82693634   -5.3971317   -4.5701953 
+    1500   0.54794089    1.6495752   0.82026751   -5.3961742   -4.5759067 
+    1600   0.55980356    1.8131287   0.83802593   -5.4189259      -4.5809 
+    1700   0.57387586    1.8795472   0.85909216   -5.4417861    -4.582694 
+    1800   0.55213296     2.038176   0.82654304   -5.4109667   -4.5844237 
+    1900   0.55078639      1.98288   0.82452723    -5.409734   -4.5852068 
+    2000   0.57223167    1.7170123   0.85663081   -5.4397176   -4.5830868 
+    2100   0.54889382    1.6331402   0.82169405   -5.4024637   -4.5807697 
+    2200   0.52508799     1.492684   0.78605672   -5.3635907   -4.5775339 
+    2300   0.52243251    1.1564315   0.78208146   -5.3562216   -4.5741401 
+    2400   0.52402525   0.76819263   0.78446581   -5.3539747   -4.5695089 
+    2500   0.51322881   0.43107281   0.76830353   -5.3330147   -4.5647112 
+    2600   0.49699205   0.11579011   0.74399709    -5.304009   -4.5600119 
+    2700   0.47852234  -0.19495726   0.71634794    -5.271595   -4.5552471 
+    2800   0.47894412  -0.58009265   0.71697935   -5.2674317   -4.5504524 
+    2900   0.44985546  -0.73726635   0.67343362   -5.2205233   -4.5470897 
+    3000   0.40350536  -0.75068104   0.60404752   -5.1476472   -4.5435997 
+    3100   0.40176825  -0.94244914   0.60144708    -5.142278   -4.5408309 
+    3200   0.39311965   -1.0482669   0.58850011   -5.1273067   -4.5388065 
+    3300   0.39377605   -1.1221491   0.58948274     -5.12761   -4.5381273 
+    3400   0.36554829   -0.9600766   0.54722579   -5.0860727    -4.538847 
+    3500   0.36279177  -0.86780963   0.54309927    -5.082212   -4.5391127 
+    3600   0.38720414  -0.89430409    0.5796446   -5.1185961   -4.5389515 
+    3700   0.39039082  -0.78636167   0.58441505   -5.1233019   -4.5388868 
+    3800     0.400172   -0.7071763   0.59905748   -5.1395458   -4.5404883 
+    3900   0.42449078  -0.69500183    0.6354627   -5.1777464   -4.5422837 
+    4000   0.42192891  -0.48124634   0.63162758   -5.1764241   -4.5447965 
+    4100   0.43206081  -0.30925639   0.64679504   -5.1940399   -4.5472448 
+    4200   0.44663017  -0.15665404   0.66860536    -5.218528   -4.5499227 
+    4300   0.43916635   0.13144543   0.65743202   -5.2098668   -4.5524348 
+    4400   0.45081915     0.293928   0.67487627   -5.2300856   -4.5552093 
+    4500   0.46005613   0.40895093   0.68870402   -5.2456746   -4.5569706 
+    4600   0.49343474   0.39438479   0.73867181   -5.2994953   -4.5608235 
+    4700    0.4788098   0.63644786   0.71677826   -5.2791999   -4.5624217 
+    4800   0.49185683   0.68524734   0.73630967    -5.300561   -4.5642513 
+    4900   0.49452356   0.74829482   0.74030177    -5.304554   -4.5642522 
+    5000   0.47494287   0.91534289   0.71098948   -5.2763838   -4.5653943 
+    5100    0.4923199   0.83229448   0.73700289   -5.3026913   -4.5656884 
+    5200   0.48967927    0.7949516   0.73304987   -5.2978611   -4.5648112 
+    5300   0.48570106   0.72654581   0.72709449   -5.2913182   -4.5642237 
+    5400   0.50508672   0.52863249   0.75611483   -5.3195895   -4.5634746 
+    5500   0.48302972   0.53848153   0.72309549   -5.2858189   -4.5627234 
+    5600   0.48504298   0.38822989   0.72610935   -5.2875278   -4.5614185 
+    5700   0.47593751   0.27725828   0.71247845    -5.273016   -4.5605376 
+    5800    0.4633829   0.19610245   0.69368421   -5.2532097   -4.5595255 
+    5900   0.46658035   0.02764789   0.69847079   -5.2554181   -4.5569474 
+    6000   0.44460828 -0.025680852   0.66557859   -5.2214473   -4.5558687 
+Loop time of 0.423461 on 7 procs for 5000 steps with 500 atoms
+
+Performance: 510082.153 tau/day, 11807.457 timesteps/s
+71.6% CPU use with 7 MPI tasks x no OpenMP threads
+
+MPI task timing breakdown:
+Section |  min time  |  avg time  |  max time  |%varavg| %total
+---------------------------------------------------------------
+Pair    | 0.051648   | 0.20575    | 0.31204    |  17.4 | 48.59
+Neigh   | 0.0014191  | 0.0039773  | 0.0058522  |   2.2 |  0.94
+Comm    | 0.076777   | 0.17578    | 0.30244    |  16.7 | 41.51
+Output  | 0.0007956  | 0.0010664  | 0.0016897  |   1.0 |  0.25
+Modify  | 0.0049438  | 0.010122   | 0.012442   |   2.4 |  2.39
+Other   |            | 0.02676    |            |       |  6.32
+
+Nlocal:    71.4286 ave 94 max 44 min
+Histogram: 1 0 0 1 1 1 0 1 1 1
+Nghost:    253.286 ave 362 max 157 min
+Histogram: 1 1 0 1 1 1 0 1 0 1
+Neighs:    1959.43 ave 2867 max 807 min
+Histogram: 1 0 1 1 0 0 1 1 0 2
+
+Total # of neighbors = 13716
+Ave neighs/atom = 27.432
+Neighbor list builds = 45
+Dangerous builds = 0
+Total wall time: 0:00:00
