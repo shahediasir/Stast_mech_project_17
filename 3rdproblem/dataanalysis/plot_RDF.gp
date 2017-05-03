@@ -1,4 +1,5 @@
-
+set terminal png size 750,462
+set output "RDF_MD.png"
 
 plot "RDF_lj_5000" u 1:2 w lp title "5000 steps",\
 	"RDF_lj_10000" u 1:2 w lp title "10000 steps",\
