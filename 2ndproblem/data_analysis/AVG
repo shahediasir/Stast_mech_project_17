@@ -1,0 +1,10 @@
+#!usr/bin/awk
+{
+	sum+=$2
+
+}
+
+END{
+	print "Average: " sum/NR
+
+}
